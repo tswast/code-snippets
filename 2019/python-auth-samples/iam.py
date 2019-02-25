@@ -17,6 +17,9 @@ import google.auth.transport.requests
 import requests
 
 
+BUCKET = "bucket-you-cant-access"
+OBJECT = "README.txt"
+
 credentials, _ = google.auth.default([
     "https://www.googleapis.com/auth/cloud-platform",
 ])
@@ -31,7 +34,8 @@ headers = {
     "Authorization": "Bearer {}".format(credentials.token),
 }
 response = requests.get(
-    "https://www.googleapis.com/storage/v1/b/bucket-you-cant-access/o/README.txt",
+    "https://www.googleapis.com/storage/v1/b/{}/o/{}".format(
+        BUCKET, OBJECT),
     headers=headers,
 )
 print(response)
