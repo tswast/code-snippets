@@ -2,6 +2,10 @@
 
 These code samples demonstrate different ways to make authenticated requests
 to Google APIs with Python 3 and the ways that authentication might go wrong.
+They were created for the Integrating Cloud Computing into the Computer Science
+Curriculum: Advance Level workshop at SIGCSE 2019.
+
+* [View slides used for the workshop](slides.pdf)
 
 ## Setup
 
