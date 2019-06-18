@@ -1,0 +1,22 @@
+# This is the list of Avro-to-Arrow authors for copyright purposes.
+#
+# This does not necessarily list everyone who has contributed code, since in
+# some cases, their employer may be the copyright holder.  To see the full list
+# of contributors, see the revision history in source control.
+Apache Software Foundation (ASF)
+Google LLC
+Jeffrey Evan Hammerbacher
+Doug Cutting
+Philip Zeyliger
+Douglass Cutting
+Ryan Blue
+Miki Tebeka
+Thomas White
+Niels Basjes
+Michael A. Smith
+Daniel Kulp
+shiraeeshi
+Thiruvalluvan M G
+Prem Santosh
+Matthieu Monsch
+Fokko Driesprong
