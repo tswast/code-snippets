@@ -61,7 +61,7 @@ Create an empty notebook and connect it to a runtime.
    %pip install --upgrade bigframes --quiet
    ```
 
-   Click the **🞂** button or press *Shift + Enter* to run the code cell.
+   Click the **Run cell** button or press *Shift + Enter* to run the code cell.
 
 
 ## Read a public dataset
@@ -96,7 +96,7 @@ Data are collected by the Alcoholic Beverages Division within the Iowa Departmen
 
 
 In BigQuery, query the
-[bigquery-public-data.iowa_liquor_sales.sales](https://console.cloud.google.com/bigquery?p=bigquery-public-data&d=iowa_liquor_sales&t=sales&page=table).
+[bigquery-public-data.iowa_liquor_sales.sales](https://console.cloud.google.com/bigquery?p=bigquery-public-data&d=iowa_liquor_sales&t=sales&page=table)
 to analyze the Iowa liquor retail sales. Use the `bigframes.pandas.read_gbq()`
 method to create a DataFrame from a query string or table ID.
 
@@ -323,7 +323,7 @@ Check how good the fit is by using the `score` method.
 model.score(feature_columns, label_columns).to_pandas()
 ```
 
-**Expected output:**
+**Sample output:**
 
 ```
 	mean_absolute_error	mean_squared_error	mean_squared_log_error	median_absolute_error	r2_score	explained_variance
@@ -390,7 +390,12 @@ it reflects the average zip code, which won't necessarily be the same as (1)
 because different zip codes have different populations.
 
 ```
-df = bpd.read_gbq_table("bigquery-public-data.iowa_liquor_sales.sales")
+df = (
+    bpd.read_gbq_table("bigquery-public-data.iowa_liquor_sales.sales")
+    .assign(
+        zip_code=lambda _: _["zip_code"].str.replace(".0", "")
+    )
+)
 census_state = bpd.read_gbq(
     "bigquery-public-data.census_bureau_acs.state_2020_5yr",
     index_col="geo_id",
@@ -410,7 +415,7 @@ average_per_zip = volume_per_pop["liters_per_pop"].mean()
 average_per_zip
 ```
 
-**Expected output:** `37.468`
+**Expected output:** `67.139`
 
 Plot these averages, similar to above.
 
@@ -516,11 +521,6 @@ Try the codelab [Get insights from unstructured data using BigQuery DataFrames](
 Instead, use a more traditional natural language processing package, NLTK, to
 process these data. Technology called a "stemmer" can merge plural and singular
 nouns into the same value, for example.
-
-### Create a new notebook
-
-Click the arrow in BigQuery Studio's tabbed editor and select
-**Create new Python notebook**.
 
 
 ### Using NLTK to stem words
@@ -715,19 +715,11 @@ Now, deploy your function to the dataset you just created. Add a
 steps.
 
 ```
-import bigframes.pandas as bpd
-
-
-bpd.options.bigquery.ordering_mode = "partial"
-bpd.options.display.repr_mode = "deferred"
-
-
 @bpd.remote_function(
     dataset=f"{project_id}.functions",
     name="lemmatize",
     # TODO: Replace this with your version of nltk.
     packages=["nltk==3.9.1"],
-    # Replace this with your service account email.
     cloud_function_service_account=f"bigframes-no-permissions@{project_id}.iam.gserviceaccount.com",
     cloud_function_ingress_settings="internal-only",
 )
@@ -756,19 +748,25 @@ Deployment should take about two minutes.
 
 ### Using the remote functions
 
-Once the deployment completes, you can switch back to your original notebook
-to test this function.
+Once the deployment completes, you can test this function.
 
 ```
-import bigframes.pandas as bpd
-
-bpd.options.bigquery.ordering_mode = "partial"
-bpd.options.display.repr_mode = "deferred"
-
 lemmatize = bpd.read_gbq_function(f"{project_id}.functions.lemmatize")
 
 words = bpd.Series(["whiskies", "whisky", "whiskey", "vodkas", "vodka"])
 words.apply(lemmatize).to_pandas()
+```
+
+**Expected output:**
+
+```
+0	whiskey
+1	whiskey
+2	whiskey
+3	vodka
+4	vodka
+
+dtype: string
 ```
 
 ## Comparing alcohol consumption by county
@@ -793,6 +791,24 @@ categories = (
 categories.to_pandas()
 ```
 
+**Expected output:**
+
+```
+category_name	total_orders
+0	100 PROOF VODKA	99124
+1	100% AGAVE TEQUILA	724374
+2	AGED DARK RUM	59433
+3	AMARETTO - IMPORTED	102
+4	AMERICAN ALCOHOL	24351
+...	...	...
+98	WATERMELON SCHNAPPS	17844
+99	WHISKEY LIQUEUR	1442732
+100	WHITE CREME DE CACAO	7213
+101	WHITE CREME DE MENTHE	2459
+102	WHITE RUM	436553
+103 rows × 2 columns
+```
+
 Next, create a DataFrame of all words in the categories, except for a few
 filler words like punctuation and "item".
 
@@ -815,6 +831,19 @@ words = words[
 words.to_pandas()
 ```
 
+**Expected output:**
+
+```
+category_name	total_orders	word	num_words
+0	100 PROOF VODKA	99124	100	3
+1	100 PROOF VODKA	99124	proof	3
+2	100 PROOF VODKA	99124	vodka	3
+...	...	...	...	...
+252	WHITE RUM	436553	white	2
+253	WHITE RUM	436553	rum	2
+254 rows × 4 columns
+```
+
 Note that by lemmatizing after grouping, you are reducing the load on your Cloud
 Function. It is possible to apply the lemmatize function on each of the several
 million rows in the database, but it would cost more than applying it after
@@ -825,7 +854,20 @@ lemmas = words.assign(lemma=lambda _: _["word"].apply(lemmatize))
 lemmas.to_pandas()
 ```
 
-Now that the words have been lemmatize, you need to select the lemma that best
+**Expected output:**
+
+```
+category_name	total_orders	word	num_words	lemma
+0	100 PROOF VODKA	99124	100	3	100
+1	100 PROOF VODKA	99124	proof	3	proof
+2	100 PROOF VODKA	99124	vodka	3	vodka
+...	...	...	...	...	...
+252	WHITE RUM	436553	white	2	white
+253	WHITE RUM	436553	rum	2	rum
+254 rows × 5 columns
+```
+
+Now that the words have been lemmatized, you need to select the lemma that best
 summarizes the category. Since there aren't many function words in the categories,
 use the heuristic that if a word appears in multiple other categories, it's
 likely better as a summarizing word (e.g. whiskey).
@@ -858,6 +900,20 @@ categories_mapping = categories_with_max[
 categories_mapping.to_pandas()
 ```
 
+**Expected output:**
+
+```
+	category_name	total_orders	word	num_words	lemma	total_orders_with_lemma	max_lemma_count
+0	100 PROOF VODKA	99124	vodka	3	vodka	7575769	7575769
+1	100% AGAVE TEQUILA	724374	tequila	3	tequila	1601092	1601092
+2	AGED DARK RUM	59433	rum	3	rum	3226633	3226633
+...	...	...	...	...	...	...	...
+100	WHITE CREME DE CACAO	7213	white	4	white	446225	446225
+101	WHITE CREME DE MENTHE	2459	white	4	white	446225	446225
+102	WHITE RUM	436553	rum	2	rum	3226633	3226633
+103 rows × 7 columns
+```
+
 Now that there is a single lemma summarizing each category, merge this to the
 original DataFrame.
 
@@ -867,6 +923,19 @@ df_with_lemma = df.merge(
     on="category_name",
     how="left"
 )
+df_with_lemma[df_with_lemma['category_name'].notnull()].peek()
+```
+
+**Expected output:**
+
+```
+	invoice_and_item_number	...	lemma	total_orders_with_lemma	max_lemma_count
+0	S30989000030	...	vodka	7575769	7575769
+1	S30538800106	...	vodka	7575769	7575769
+2	S30601200013	...	vodka	7575769	7575769
+3	S30527200047	...	vodka	7575769	7575769
+4	S30833600058	...	vodka	7575769	7575769
+5 rows × 30 columns
 ```
 
 ### Comparing counties
@@ -900,10 +969,37 @@ county_max_lemma = county_lemma[
 county_max_lemma.to_pandas()
 ```
 
+**Expected output:**
+
+```
+	volume_sold_liters	volume_sold_int64
+county	lemma		
+SCOTT	vodka	6044393.1	6044393
+APPANOOSE	whiskey	292490.44	292490
+HAMILTON	whiskey	329118.92	329118
+...	...	...	...
+WORTH	whiskey	100542.85	100542
+MITCHELL	vodka	158791.94	158791
+RINGGOLD	whiskey	65107.8	65107
+101 rows × 2 columns
+```
+
 How different are the counties from each other?
 
 ```
 county_max_lemma.groupby("lemma").size().to_pandas()
+```
+
+**Expected output:**
+
+```
+lemma	
+american	1
+liqueur	1
+vodka	15
+whiskey	83
+
+dtype: Int64
 ```
 
 In most counties, whiskey is the most popular product by volume, with vodka most
@@ -917,6 +1013,21 @@ total_liters = (
     .sort_values("volume_sold_liters", ascending=False)
 )
 total_liters.to_pandas()
+```
+
+**Expected output:**
+
+```
+	volume_sold_liters
+lemma	
+vodka	85356422.950001
+whiskey	85112339.980001
+rum	33891011.72
+american	19994259.64
+imported	14985636.61
+tequila	12357782.37
+cocktails/rtd	7406769.87
+...
 ```
 
 Whiskey and vodka have nearly the same volume, with vodka a bit higher than
@@ -957,8 +1068,38 @@ difference from the statewide proportion in each county.
 # that drink _less_ of a particular liquor than expected.
 largest_per_county = cohens_h.groupby("county").agg({"cohens_h_int": "max"})
 counties = cohens_h[cohens_h['cohens_h_int'] == largest_per_county["cohens_h_int"]]
-counties.to_pandas()
+counties.sort_values('cohens_h', ascending=False).to_pandas()
 ```
+
+**Expected output:**
+
+```
+	cohens_h	cohens_h_int
+county	lemma		
+EL PASO	liqueur	1.289667	1289667
+ADAMS	whiskey	0.373591	373590
+IDA	whiskey	0.306481	306481
+OSCEOLA	whiskey	0.295524	295523
+PALO ALTO	whiskey	0.293697	293696
+...	...	...	...
+MUSCATINE	rum	0.053757	53757
+MARION	rum	0.053427	53427
+MITCHELL	vodka	0.048212	48212
+WEBSTER	rum	0.044896	44895
+CERRO GORDO	cocktails/rtd	0.027496	27495
+100 rows × 2 columns
+```
+
+The larger the Cohen's h value, the more likely it is that there is a
+statistically significant difference in the amount of that type of alcohol
+consumed compared to the state averages. For the smaller positive values, the
+difference in consumption is different than the statewide average, but it may
+be due to random differences.
+
+An aside: EL PASO county doesn't appear to be a
+[county in Iowa](https://en.wikipedia.org/wiki/List_of_counties_in_Iowa)
+this may indicate another need for data cleanup before fully depending on these
+results.
 
 ### Visualizing counties
 
@@ -981,6 +1122,20 @@ counties_plus = (
     .to_pandas()
 )
 counties_plus
+```
+
+**Expected output:**
+
+```
+county	lemma	cohens_h	cohens_h_int	geo_id	state_fips_code	...
+0	ALLAMAKEE	american	0.087931	87930	19005	19	...
+1	BLACK HAWK	american	0.106256	106256	19013	19	...
+2	WINNESHIEK	american	0.093101	93101	19191	19	...
+...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...	...
+96	CLINTON	tequila	0.075708	75707	19045	19	...
+97	POLK	tequila	0.087438	87438	19153	19	...
+98	LEE	schnapps	0.064663	64663	19111	19	...
+99 rows × 23 columns
 ```
 
 Use GeoPandas to visualize these differences on a map.
@@ -1013,10 +1168,10 @@ Alternatively, delete the Cloud Functions, service accounts, and datasets create
 
 ## Congratulations!
 
-You have analyzed structured and unstructured data using BigQuery DataFrames.
+You have cleaned and analyzed structured data using BigQuery DataFrames.
 Along the way you've explored Google Cloud's Public Datasets, Python notebooks
-in BigQuery Studio, BigQuery ML, Vertex AI, and natural language to Python
-features of BigQuery Studio. Fantastic job!
+in BigQuery Studio, BigQuery ML, BigQuery Remote Functions, and the power of
+BigQuery DataFrames. Fantastic job!
 
 
 ### Next steps
