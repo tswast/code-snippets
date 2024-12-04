@@ -677,10 +677,10 @@ from google.cloud.iam_admin_v1 import types
 iam_admin_client = iam_admin_v1.IAMClient()
 request = types.CreateServiceAccountRequest()
 
+account_id = "bigframes-no-permissions"
 request.account_id = account_id
 request.name = f"projects/{project_id}"
 
-account_id = "bigframes-no-permissions"
 display_name = "bigframes remote function (no permissions)"
 service_account = types.ServiceAccount()
 service_account.display_name = display_name
@@ -704,7 +704,13 @@ bqclient.create_dataset(dataset, exists_ok=True)
 
 ### Deploying a remote function
 
-Now, deploy your function to the dataset you just created. Add a 
+Enable the Cloud Functions API if not yet already enabled.
+
+```
+!gcloud services enable cloudfunctions.googleapis.com
+```
+
+Now, deploy your function to the dataset you just created. Add a
 `@bpd.remote_function` decorator to the function you created in the previous
 steps.
 
@@ -722,7 +728,7 @@ bpd.options.display.repr_mode = "deferred"
     # TODO: Replace this with your version of nltk.
     packages=["nltk==3.9.1"],
     # Replace this with your service account email.
-    cloud_function_service_account="bigframes-no-permissions@your-project-id.iam.gserviceaccount.com",
+    cloud_function_service_account=f"bigframes-no-permissions@{project_id}.iam.gserviceaccount.com",
     cloud_function_ingress_settings="internal-only",
 )
 def lemmatize(word: str) -> str:
@@ -759,7 +765,7 @@ import bigframes.pandas as bpd
 bpd.options.bigquery.ordering_mode = "partial"
 bpd.options.display.repr_mode = "deferred"
 
-lemmatize = bpd.read_gbq_function("swast-scratch.functions.lemmatize")
+lemmatize = bpd.read_gbq_function(f"{project_id}.functions.lemmatize")
 
 words = bpd.Series(["whiskies", "whisky", "whiskey", "vodkas", "vodka"])
 words.apply(lemmatize).to_pandas()
