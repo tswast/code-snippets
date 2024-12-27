@@ -1,0 +1,2 @@
+bigquery-magics==0.5.0
+nbconvert==7.16.4
