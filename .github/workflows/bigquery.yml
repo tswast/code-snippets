@@ -1,0 +1,58 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Run BigQuery snippets as a test
+
+on:
+  push:
+    paths-ignore:
+      - ".gitignore"
+    branches:
+      - main
+  pull_request_target:
+    types:
+      - labeled
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.label.name == 'ci-run-cloud'
+    
+    # Add "id-token" with the intended permissions.
+    permissions:
+      contents: 'read'
+      # required for GCP workload identity federation
+      id-token: 'write'
+
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      if: github.event.label.name != 'ci-run-cloud'
+
+    - name: checkout
+      if: github.event.label.name == 'ci-run-cloud'
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        ref: ${{ github.event.pull_request.head.sha }}
+    
+    - name: Set up Python
+      # This is the version of the action for setting up Python, not the Python version.
+      uses: actions/setup-python@v5
+      with:
+        # Semantic version range syntax or exact version of a Python version
+        python-version: '3.12'
+        # Optional - x64 or x86 architecture, defaults to x64
+        architecture: 'x64'
+
+    - uses: 'google-github-actions/auth@v2'
+      with:
+        project_id: 'friendliness-dev-demo'
+        workload_identity_provider: 'projects/368174856750/locations/global/workloadIdentityPools/github/providers/code-snippets'
+    
+    - name: Display Python version
+      run: python -c "import sys; print(sys.version)"
+
+    - name: Install packages
+      run: python -m pip install -r requirements.txt
+
+    - name: Test the notebook
+      run: python -m jupyter nbconvert --to html --execute 2024/12-bigquery-utils/bigquery-utils.ipynb
