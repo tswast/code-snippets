@@ -46,10 +46,13 @@ jobs:
     - uses: 'google-github-actions/auth@v2'
       with:
         project_id: 'friendliness-dev-demo'
-        workload_identity_provider: 'projects/123456789/locations/global/workloadIdentityPools/my-pool/providers/my-provider'
+        workload_identity_provider: 'projects/368174856750/locations/global/workloadIdentityPools/github/providers/code-snippets'
     
     - name: Display Python version
       run: python -c "import sys; print(sys.version)"
 
-    - name: Install needed packages.
-      run: python -c "import sys; print(sys.version)"
+    - name: Install packages
+      run: python -m pip install -r requirements.txt
+
+    - name: Test the notebook
+      run: python -m jupyter nbconvert --to html --execute 2024/12-bigquery-utils/bigquery-utils.ipynb
