@@ -27,7 +27,8 @@ import extract_mp3
 DATA_DIR = pathlib.Path(__file__).parent / "data"
 
 
-target_url = "https://www.loc.gov/collections/national-jukebox/?sb=date_desc&c=100"
+# target_url = "https://www.loc.gov/collections/national-jukebox/?sb=date_desc&c=100"
+target_url = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date_desc&sp=2"
 item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url)
 
 

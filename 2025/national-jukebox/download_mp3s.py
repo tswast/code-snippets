@@ -42,7 +42,8 @@ def download_mp3(base_url):
 jukebox_path = DATA_DIR / "jukebox.jsonl"
 jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
 
-for _, row in jukebox.iterrows():
+# for _, row in jukebox.iterrows():
+for _, row in jukebox.iloc[100:].iterrows():
     jukebox_id = row["URL"].split("/")[-2]
     mp3_path = (DATA_DIR / jukebox_id).with_suffix(".mp3")
     if mp3_path.exists():
