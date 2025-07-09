@@ -12,26 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import json
 import pathlib
 import time
 
 import pandas
 import requests
 
-import list_urls
-import extract_item_info
-import extract_mp3
-
 
 DATA_DIR = pathlib.Path(__file__).parent / "data"
 
 
-target_url = "https://www.loc.gov/collections/national-jukebox/?sb=date_desc&c=100"
-item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url)
 
-
-def download_and_extract_item(base_url):
+def download_mp3(base_url):
     print(f"Fetching content from: {base_url}")
     # https://guides.loc.gov/digital-scholarship/faq
     # Stay within 20 requests per minute rate limit.
@@ -44,30 +36,19 @@ def download_and_extract_item(base_url):
         print(f"Error fetching URL: {e}")
         return None
     
-    item = extract_item_info.extract_subheadings_to_dict(response.text)
-    mp3_url = extract_mp3.extract_mp3_url(response.text)
-    item["MP3 URL"] = mp3_url
-    item["URL"] = base_url
-    return item
+    return response.content
 
 
-visited_urls = {}
 jukebox_path = DATA_DIR / "jukebox.jsonl"
+jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
 
-if jukebox_path.exists():
-    jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
-    visited_urls = frozenset(jukebox["URL"].to_list()) if "URL" in jukebox.columns else {}
+for _, row in jukebox.iterrows():
+    jukebox_id = row["URL"].split("/")[-2]
+    mp3_path = (DATA_DIR / jukebox_id).with_suffix(".mp3")
+    if mp3_path.exists():
+        continue
 
-
-with open(DATA_DIR / "jukebox.jsonl", "a") as data_file:
-    for item_url in item_urls:
-        if item_url in visited_urls:
-            continue
-
-        item = download_and_extract_item(item_url)
-        if item is None:
-            continue
-
-        json.dump(item, data_file, indent=None)
-        data_file.write("\n")
-        data_file.flush()
+    mp3_bytes = download_mp3(row["MP3 URL"])
+    with open(mp3_path, "wb") as mp3_file:
+        mp3_file.write(mp3_bytes)
+    print(f"Wrote {mp3_path}")
