@@ -28,9 +28,9 @@ def download_mp3(base_url):
     # https://guides.loc.gov/digital-scholarship/faq
     # Stay within 20 requests per minute rate limit.
     time.sleep(3)
-    response = requests.get(base_url)
 
     try:
+        response = requests.get(base_url)
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}")
@@ -39,17 +39,25 @@ def download_mp3(base_url):
     return response.content
 
 
-jukebox_path = DATA_DIR / "jukebox.jsonl"
-jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
+def download_all():
+    jukebox_path = DATA_DIR / "jukebox.jsonl"
+    jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
 
-# for _, row in jukebox.iterrows():
-for _, row in jukebox.iloc[100:].iterrows():
-    jukebox_id = row["URL"].split("/")[-2]
-    mp3_path = (DATA_DIR / jukebox_id).with_suffix(".mp3")
-    if mp3_path.exists():
-        continue
+    # for _, row in jukebox.iterrows():
+    for _, row in jukebox.iloc[100:].iterrows():
+        jukebox_id = row["URL"].split("/")[-2]
+        mp3_path = (DATA_DIR / jukebox_id).with_suffix(".mp3")
+        if mp3_path.exists():
+            continue
 
-    mp3_bytes = download_mp3(row["MP3 URL"])
-    with open(mp3_path, "wb") as mp3_file:
-        mp3_file.write(mp3_bytes)
-    print(f"Wrote {mp3_path}")
+        mp3_bytes = download_mp3(row["MP3 URL"])
+        if mp3_bytes is None:
+            continue
+
+        with open(mp3_path, "wb") as mp3_file:
+            mp3_file.write(mp3_bytes)
+        print(f"Wrote {mp3_path}")
+
+
+if __name__ == "__main__":
+    download_all()

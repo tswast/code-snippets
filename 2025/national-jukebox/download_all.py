@@ -22,14 +22,14 @@ import requests
 import list_urls
 import extract_item_info
 import extract_mp3
+import download_mp3s
 
 
 DATA_DIR = pathlib.Path(__file__).parent / "data"
 
 
 # target_url = "https://www.loc.gov/collections/national-jukebox/?sb=date_desc&c=100"
-target_url = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date_desc&sp=2"
-item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url)
+target_url_template = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date_desc&sp={}"
 
 
 def download_and_extract_item(base_url):
@@ -37,9 +37,9 @@ def download_and_extract_item(base_url):
     # https://guides.loc.gov/digital-scholarship/faq
     # Stay within 20 requests per minute rate limit.
     time.sleep(3)
-    response = requests.get(base_url)
 
     try:
+        response = requests.get(base_url, timeout=10)
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}")
@@ -52,23 +52,44 @@ def download_and_extract_item(base_url):
     return item
 
 
-visited_urls = {}
-jukebox_path = DATA_DIR / "jukebox.jsonl"
 
-if jukebox_path.exists():
-    jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
-    visited_urls = frozenset(jukebox["URL"].to_list()) if "URL" in jukebox.columns else {}
+def download_page(page_number):
+    target_url = target_url_template.format(page_number)
+    item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url)
+
+    visited_urls = set()
+    jukebox_path = DATA_DIR / "jukebox.jsonl"
+
+    if jukebox_path.exists():
+        jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
+        visited_urls = frozenset(jukebox["URL"].to_list()) if "URL" in jukebox.columns else {}
+
+    with open(DATA_DIR / "jukebox.jsonl", "a") as data_file:
+        while item_urls:
+            item_url = item_urls.pop(0)
+            if item_url in visited_urls:
+                continue
+
+            item = download_and_extract_item(item_url)
+            if item is None:
+                item_urls.append(item_url)
+                continue
+
+            json.dump(item, data_file, indent=None)
+            data_file.write("\n")
+            data_file.flush()
 
 
-with open(DATA_DIR / "jukebox.jsonl", "a") as data_file:
-    for item_url in item_urls:
-        if item_url in visited_urls:
-            continue
+if __name__ == "__main__":
+    page_number = 4
+    while True:
+        print(f"Page {page_number}")
+        try:
+            download_page(page_number)
+            download_mp3s.download_all()
+        except requests.exceptions.HTTPError as exc:
+            if exc.response.status_code == 404:
+                print("Reached last page?")
+                break
+        page_number += 1
 
-        item = download_and_extract_item(item_url)
-        if item is None:
-            continue
-
-        json.dump(item, data_file, indent=None)
-        data_file.write("\n")
-        data_file.flush()
