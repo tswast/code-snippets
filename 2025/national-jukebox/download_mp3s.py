@@ -30,7 +30,7 @@ def download_mp3(base_url):
     time.sleep(3)
 
     try:
-        response = requests.get(base_url)
+        response = requests.get(base_url, timeout=60)
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}")
