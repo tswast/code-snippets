@@ -27,16 +27,21 @@ import download_mp3s
 
 DATA_DIR = pathlib.Path(__file__).parent / "data"
 
+MAX_PAGES = 169
+
+# https://guides.loc.gov/digital-scholarship/faq
+# Stay within 20 requests per minute rate limit.
+SLEEP_SECONDS = 60.0 / 20.0
 
 # target_url = "https://www.loc.gov/collections/national-jukebox/?sb=date_desc&c=100"
-target_url_template = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date_desc&sp={}"
+# target_url_template = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date_desc&sp={}"
+target_url_template = "https://www.loc.gov/collections/national-jukebox/?c=100&sb=date&sp={}"
+# target_url_template = "https://www.loc.gov/collections/national-jukebox/?c=100&fa=original-format:sound+recording&sb=date&sp={}"
 
 
 def download_and_extract_item(base_url):
     print(f"Fetching content from: {base_url}")
-    # https://guides.loc.gov/digital-scholarship/faq
-    # Stay within 20 requests per minute rate limit.
-    time.sleep(3)
+    time.sleep(SLEEP_SECONDS)
 
     try:
         response = requests.get(base_url, timeout=10)
@@ -55,7 +60,7 @@ def download_and_extract_item(base_url):
 
 def download_page(page_number):
     target_url = target_url_template.format(page_number)
-    item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url)
+    item_urls = list_urls.get_national_jukebox_song_detail_urls(target_url, sleep_seconds=SLEEP_SECONDS)
 
     visited_urls = set()
     jukebox_path = DATA_DIR / "jukebox.jsonl"
@@ -81,15 +86,19 @@ def download_page(page_number):
 
 
 if __name__ == "__main__":
-    page_number = 30  # 4
+    page_number = 1
     while True:
         print(f"Page {page_number}")
         try:
             download_page(page_number)
-            download_mp3s.download_all()
+            # Server is currently down for audio.
+            # download_mp3s.download_all(sleep_seconds=SLEEP_SECONDS)
         except requests.exceptions.HTTPError as exc:
             if exc.response.status_code == 404:
                 print("Reached last page?")
                 break
         page_number += 1
+
+        if page_number > MAX_PAGES:
+            break
 

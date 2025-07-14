@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import time
+
 import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
-def get_national_jukebox_song_detail_urls(base_url: str) -> list[str]:
+def get_national_jukebox_song_detail_urls(base_url: str, sleep_seconds: float = 3.0) -> list[str]:
     """
     Scrapes the National Jukebox collection page to extract URLs for individual song detail pages.
 
@@ -26,6 +28,7 @@ def get_national_jukebox_song_detail_urls(base_url: str) -> list[str]:
     Returns:
         A list of URLs for the song detail pages.
     """
+    time.sleep(sleep_time)
     print(f"Fetching content from: {base_url}")
     try:
         response = requests.get(base_url)
