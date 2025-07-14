@@ -28,7 +28,7 @@ def get_national_jukebox_song_detail_urls(base_url: str, sleep_seconds: float = 
     Returns:
         A list of URLs for the song detail pages.
     """
-    time.sleep(sleep_time)
+    time.sleep(sleep_seconds)
     print(f"Fetching content from: {base_url}")
     try:
         response = requests.get(base_url)
