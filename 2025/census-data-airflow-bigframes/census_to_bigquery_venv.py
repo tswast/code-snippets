@@ -36,6 +36,7 @@ default_dag_args = {
 }
 
 GCS_LOCATION = "gs://us-central1-bigframes-orche-b70f2a52-bucket/data/us-census/cc-est2024-agesex-all.csv"
+BIGQUERY_DESTINATION = "swast-scratch.airflow_demo.us_census_by_county2020_to_present"
 
 # Define a DAG (directed acyclic graph) of tasks.
 # Any task you create within the context manager is automatically added to the
@@ -89,14 +90,8 @@ with models.DAG(
             # parsing the file.
             df = bpd.read_csv(GCS_LOCATION, engine="bigquery")
 
-            # TODO: any sort of processing / cleanup?
-            # The key for YEAR is as follows:
-            # 1 = 4/1/2020 population estimates base
-            # 2 = 7/1/2020 population estimate
-            # 3 = 7/1/2021 population estimate
-            # 4 = 7/1/2022 population estimate
-            # 5 = 7/1/2023 population estimate
-            # 6 = 7/1/2024 population estimate
+            # Perform preprocessing. For example, you can map some coded data
+            # into a form that is easier to understand.
             df_dates = df.assign(
                 ESTIMATE_DATE=df["YEAR"].case_when(
                     caselist=[
@@ -110,6 +105,8 @@ with models.DAG(
                     ]
                 ),
             ).drop(columns=["YEAR"])
+            
+            # TODO(developer): Add additional processing and cleanup as needed.
 
             # One of the benefits of using BigQuery DataFrames in your operators is
             # that it makes it easy to perform data validations.
@@ -118,10 +115,20 @@ with models.DAG(
             # complicated, it hints to BigQuery DataFrames to run those first and
             # avoid duplicating work.
             df_dates.cache()
+            row_count, column_count = df_dates.shape
+            assert row_count > 0
+            assert column_count > 0
             assert not df_dates["ESTIMATE_DATE"].hasnans
 
-            # Now that we have validated the data is as expected, it should be safe
-            # to write to the final destination table.
+            # TODO(developer): Add additional validations as needed.
+
+            # Now that you have validated the data, it should be safe to write
+            # to the final destination table.
+            df_dates.to_gbq(
+                BIGQUERY_DESTINATION,
+                if_exists="replace",
+                clustering_columns=["ESTIMATE_DATE", "STATE", "COUNTY"],
+            )
         finally:
             # Closing the session is optional. Any temporary tables created
             # should be automatically cleaned up when the BigQuery Session
