@@ -23,14 +23,14 @@ DATA_DIR = pathlib.Path(__file__).parent / "data"
 
 
 
-def download_mp3(base_url):
+def download_mp3(base_url, sleep_seconds: float = 3.0):
     print(f"Fetching content from: {base_url}")
     # https://guides.loc.gov/digital-scholarship/faq
     # Stay within 20 requests per minute rate limit.
-    time.sleep(3)
+    time.sleep(sleep_seconds)
 
     try:
-        response = requests.get(base_url)
+        response = requests.get(base_url, timeout=60)
         response.raise_for_status()  # Raise an exception for HTTP errors (4xx or 5xx)
     except requests.exceptions.RequestException as e:
         print(f"Error fetching URL: {e}")
@@ -39,7 +39,7 @@ def download_mp3(base_url):
     return response.content
 
 
-def download_all():
+def download_all(sleep_seconds: float = 3.0):
     jukebox_path = DATA_DIR / "jukebox.jsonl"
     jukebox = pandas.read_json(jukebox_path, lines=True, orient="records")
 
@@ -50,7 +50,7 @@ def download_all():
         if mp3_path.exists():
             continue
 
-        mp3_bytes = download_mp3(row["MP3 URL"])
+        mp3_bytes = download_mp3(row["MP3 URL"], sleep_seconds=sleep_seconds)
         if mp3_bytes is None:
             continue
 
