@@ -12,10 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Tested on Cloud Composer 3
-#
-# For local development:
-# pip install 'apache-airflow[google]==2.10.5'
+"""
+An example DAG for loading data from the US Census using BigQuery DataFrames
+(aka bigframes). This DAG uses PythonVirtualenvOperator for environments where
+bigframes can't be installed for use from PythonOperator.
+
+I have tested this DAG on Cloud Composer 3 with Apache Airflow 2.10.5.
+
+For local development:
+
+    pip install 'apache-airflow[google]==2.10.5' bigframes
+"""
 
 
 import datetime
@@ -36,26 +43,24 @@ default_dag_args = {
 }
 
 GCS_LOCATION = "gs://us-central1-bigframes-orche-b70f2a52-bucket/data/us-census/cc-est2024-agesex-all.csv"
-BIGQUERY_DESTINATION = "swast-scratch.airflow_demo.us_census_by_county2020_to_present"
 
 # Define a DAG (directed acyclic graph) of tasks.
 # Any task you create within the context manager is automatically added to the
 # DAG object.
 with models.DAG(
-    "census_from_http_to_gcs_once",
+    "census_from_http_to_bigquery_once",
     schedule_interval="@once",
     default_args=default_dag_args,
 ) as dag:
-    download = bash.BashOperator(
-        task_id="download",
+    download_upload = bash.BashOperator(
+        task_id="download_upload",
         # See
         # https://www.census.gov/data/tables/time-series/demo/popest/2020s-counties-detail.html
         # for file paths and methodologies.
-        bash_command="wget https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv",
-    )
-    upload = bash.BashOperator(
-        task_id="upload",
-        bash_command=f"gcloud storage cp cc-est2024-agesex-all.csv {GCS_LOCATION}",
+        bash_command=f"""
+        wget https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/counties/asrh/cc-est2024-agesex-all.csv -P ~;
+        gcloud storage cp ~/cc-est2024-agesex-all.csv {GCS_LOCATION}
+        """,
     )
 
     def callable_virtualenv():
@@ -65,10 +70,16 @@ with models.DAG(
         Importing at the module level ensures that it will not attempt to import the
         library before it is installed.
         """
+        import datetime
+
+        import bigframes.pandas as bpd
+
+        BIGQUERY_DESTINATION = "swast-scratch.airflow_demo.us_census_by_county2020_to_present"
+        GCS_LOCATION = "gs://us-central1-bigframes-orche-b70f2a52-bucket/data/us-census/cc-est2024-agesex-all.csv"
+
         #=============================
         # Setup bigframes
         #=============================
-        import bigframes.pandas as bpd
 
         # Recommended: Partial ordering mode enables the best performance.
         bpd.options.bigquery.ordering_mode = "partial"
@@ -144,4 +155,4 @@ with models.DAG(
     )
 
 
-    download >> upload >> bf_to_gbq
+    download_upload >> bf_to_gbq
