@@ -1459,7 +1459,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "polars-bigquery-gcloud-bigquery"
+name = "polars-bigquery-gcp-bigquery-client"
 version = "0.1.0"
 dependencies = [
  "polars",
