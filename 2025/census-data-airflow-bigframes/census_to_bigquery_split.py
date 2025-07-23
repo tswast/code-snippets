@@ -143,11 +143,12 @@ with models.DAG(
         python_callable=validate_and_write,
     )
 
-    cleanup_table = BigQueryDeleteTableOperator(
+    cleanup_preprocess_table = BigQueryDeleteTableOperator(
+        task_id="cleanup_preprocess_table",
         deletion_dataset_table="{{ task_instance.xcom_pull(task_ids='bf_preprocess', key='census_preprocessed_table' }}",
         # Always execute, even if the previous task failed.
         # https://stackoverflow.com/a/44441890/101923
         trigger_rule="all_done",
     )
 
-    download_upload >> bf_preprocess >> bf_validate_and_write >> cleanup_table
+    download_upload >> bf_preprocess >> bf_validate_and_write >> cleanup_preprocess_table
