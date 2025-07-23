@@ -24,14 +24,15 @@ For local development:
     pip install 'apache-airflow[google]==2.10.5' bigframes
 """
 
-
 import datetime
+import json
 
 from airflow import models
 from airflow.operators import bash
 from airflow.operators.python import (
     PythonOperator,
 )
+from airflow.providers.google.cloud.operators.bigquery import BigQueryDeleteTableOperator
 
 
 default_dag_args = {
@@ -48,7 +49,7 @@ GCS_LOCATION = "gs://us-central1-bigframes-orche-5b3ec9ed-bucket/data/us-census/
 # Any task you create within the context manager is automatically added to the
 # DAG object.
 with models.DAG(
-    "census_from_http_to_bigquery_python_operator_once",
+    "census_from_http_to_bigquery_split_once",
     schedule_interval="@once",
     default_args=default_dag_args,
 ) as dag:
@@ -63,30 +64,15 @@ with models.DAG(
         """,
     )
 
-    def callable_python():
+    def preprocess(task_instance):
         import datetime
 
         import bigframes.pandas as bpd
 
-        BIGQUERY_DESTINATION = "swast-scratch.airflow_demo.us_census_by_county2020_to_present"
         GCS_LOCATION = "gs://us-central1-bigframes-orche-5b3ec9ed-bucket/data/us-census/cc-est2024-agesex-all.csv"
 
-        #=============================
-        # Setup bigframes
-        #=============================
-
-        # Recommended: Partial ordering mode enables the best performance.
         bpd.options.bigquery.ordering_mode = "partial"
-
-        # Recommended: Fail the operator if it accidentally downloads too many
-        # rows to the client-side from BigQuery. This can prevent your operator
-        # from using too much memory.
         bpd.options.compute.maximum_result_rows = 10_000
-
-        # Optional. An explicit project ID is not needed if the project can be
-        # determined from the environment, such as in Cloud Composer, Google
-        # Compute Engine, or if authenicated with the gcloud application-default
-        # commands.
         # bpd.options.bigquery.project = "my-project-id"
 
         try:
@@ -111,15 +97,26 @@ with models.DAG(
                 ),
             ).drop(columns=["YEAR"])
             
-            # TODO(developer): Add additional processing and cleanup as needed.
+            task_instance.xcom_push(key="census_preprocessed_table", value=df_dates.to_gbq())
+        finally:
+            bpd.close_session()
 
-            # One of the benefits of using BigQuery DataFrames in your operators is
-            # that it makes it easy to perform data validations.
-            #
-            # Note: cache() is optional, but if any of the preprocessing above is
-            # complicated, it hints to BigQuery DataFrames to run those first and
-            # avoid duplicating work.
-            df_dates.cache()
+    def validate_and_write(task_instance):
+        import bigframes.pandas as bpd
+        bigquery_destination = "swast-scratch.airflow_demo.us_census_by_county2020_to_present"
+
+        bpd.options.bigquery.ordering_mode = "partial"
+        bpd.options.compute.maximum_result_rows = 10_000
+        # bpd.options.bigquery.project = "my-project-id"
+
+        try:
+            # Get the table ID from the previous step.
+            bigquery_source = task_instance.xcom_pull(
+                task_ids="bf_preprocess",
+                key="census_preprocessed_table",
+            )
+            df_dates = bpd.read_gbq(bigquery_source)
+
             row_count, column_count = df_dates.shape
             assert row_count > 0
             assert column_count > 0
@@ -127,24 +124,31 @@ with models.DAG(
 
             # TODO(developer): Add additional validations as needed.
 
-            # Now that you have validated the data, it should be safe to write
-            # to the final destination table.
             df_dates.to_gbq(
-                BIGQUERY_DESTINATION,
+                bigquery_destination,
                 if_exists="replace",
                 clustering_columns=["ESTIMATE_DATE", "STATE", "COUNTY"],
             )
         finally:
-            # Closing the session is optional. Any temporary tables created
-            # should be automatically cleaned up when the BigQuery Session
-            # closes after 24 hours, but closing the session explicitly can help
-            # save on storage costs.
             bpd.close_session()
 
-    bf_to_gbq = PythonOperator(
-        task_id="bf_to_gbq",
-        python_callable=callable_python,
+
+    bf_preprocess = PythonOperator(
+        task_id="bf_preprocess",
+        python_callable=preprocess,
     )
 
+    bf_validate_and_write = PythonOperator(
+        task_id="bf_validate_and_write",
+        python_callable=validate_and_write,
+    )
 
-    download_upload >> bf_to_gbq
+    cleanup_preprocess_table = BigQueryDeleteTableOperator(
+        task_id="cleanup_preprocess_table",
+        deletion_dataset_table="{{ task_instance.xcom_pull(task_ids='bf_preprocess', key='census_preprocessed_table' }}",
+        # Always execute, even if the previous task failed.
+        # https://stackoverflow.com/a/44441890/101923
+        trigger_rule="all_done",
+    )
+
+    download_upload >> bf_preprocess >> bf_validate_and_write >> cleanup_preprocess_table
