@@ -1,0 +1,55 @@
+digraph DataPipeline {
+    rankdir=TB;
+    // ratio=0.75;    // Set aspect ratio to 1 for a square shape
+    compound=true;
+
+    // Global node styles for consistent appearance
+    node [shape=box, style=filled, fontname="Helvetica", fillcolor="#D8EBF7"]; // Single global fillcolor
+
+    // New nodes for platforms
+    node [shape=cylinder, fillcolor="#C1E1C1", style=filled]; // Distinct style for platform nodes
+    ApacheAirflow [label="Apache Airflow\n(Orchestration)"];
+    GCS [label="Google Cloud Storage"];
+    BigQuery [label="BigQuery\n(Data Processing and Storage)"];
+
+    // Restore default node style for operators within the subgraph
+    node [shape=box, fillcolor="#D8EBF7"];
+
+
+    // Approach 2: Split PythonOperators with XCom and Cleanup
+    subgraph cluster_split_operator_approach {
+        label="Data Pipeline Operations"; // More general label for the single approach
+        style=filled;
+        fillcolor="#F5F5F5"; // Light grey background for this subgraph
+
+        // Common Data Ingestion Step (orchestrated by Airflow, moves data to GCS)
+    	download_upload [label="Download CSV from HTTPS\n& Upload to GCS\n(BashOperator)"];
+        bf_preprocess_op [label="1. Preprocess Data (PythonOperator)\n(Reads data via BigFrames)", height=1.5];
+        bf_validate_write_op [label="2. Validate & Write (PythonOperator)\n(Validates & Writes to BigQuery final table)", height=1.5];
+        cleanup_preprocess_table_op [label="3. Cleanup Temporary Table\n(BigQueryDeleteTableOperator)\n(trigger_rule='all_done')", shape=box, style="filled,dashed"];
+    }
+
+    // Connect Airflow to the operators it orchestrates
+    ApacheAirflow -> download_upload [label="Orchestrates" lhead=cluster_split_operator_approach];
+
+
+    // Data Flow: Ingestion
+    download_upload -> GCS [label="Uploads Data"];
+
+    // Data Flow: Processing (GCS to BigQuery via BigFrames operations)
+    GCS -> bf_preprocess_op [label="Data Source"]; // bf_preprocess_op reads from GCS (via BigQuery engine)
+    bf_preprocess_op -> BigQuery [label="BigFrames processing"]; // BigFrames operates *in* BigQuery
+    bf_validate_write_op -> BigQuery [label="BigFrames validation and writes to final table"]; // Writes to final table in BigQuery
+    cleanup_preprocess_table_op -> BigQuery [style=dashed, label="Cleans Up"]; // Show BigQuery being used by cleanup
+
+    // Dependencies within the Airflow DAG logic
+    download_upload -> bf_preprocess_op [label="Task Dependency"];
+    bf_preprocess_op -> bf_validate_write_op [label="Temporary Table ID\n(XCom)"];
+
+    // Cleanup dependencies (trigger_rule="all_done")
+    bf_preprocess_op -> cleanup_preprocess_table_op [label="Cleanup Trigger", style=dashed, color=gray, constraint=false];
+    bf_validate_write_op -> cleanup_preprocess_table_op [label="Cleanup Trigger", style=dashed, color=gray, constraint=false];
+
+    // Add a general note about BigFrames execution for clarity
+    note_bigframes_execution [label="BigFrames operations execute\ndirectly within BigQuery's engine,\nminimizing Airflow worker load.", shape=note, fontsize=10, fillcolor="#FFFACD"];
+}

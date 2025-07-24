@@ -25,7 +25,6 @@ For local development:
 """
 
 import datetime
-import json
 
 from airflow import models
 from airflow.operators import bash
@@ -43,7 +42,7 @@ default_dag_args = {
     "start_date": datetime.datetime(2025, 6, 30),
 }
 
-GCS_LOCATION = "gs://us-central1-bigframes-orche-5b3ec9ed-bucket/data/us-census/cc-est2024-agesex-all.csv"
+GCS_LOCATION = "gs://us-central1-bigframes-orche-0186cdcf-bucket/data/us-census/cc-est2024-agesex-all.csv"
 
 # Define a DAG (directed acyclic graph) of tasks.
 # Any task you create within the context manager is automatically added to the
@@ -69,7 +68,7 @@ with models.DAG(
 
         import bigframes.pandas as bpd
 
-        GCS_LOCATION = "gs://us-central1-bigframes-orche-5b3ec9ed-bucket/data/us-census/cc-est2024-agesex-all.csv"
+        GCS_LOCATION = "gs://us-central1-bigframes-orche-0186cdcf-bucket/data/us-census/cc-est2024-agesex-all.csv"
 
         bpd.options.bigquery.ordering_mode = "partial"
         bpd.options.compute.maximum_result_rows = 10_000
@@ -152,3 +151,4 @@ with models.DAG(
     )
 
     download_upload >> bf_preprocess >> bf_validate_and_write >> cleanup_preprocess_table
+    bf_preprocess >> cleanup_preprocess_table

@@ -1,0 +1,46 @@
+digraph DataPipeline {
+    rankdir=TB; // Layout from Top to Bottom
+    compound=true;
+
+    // Global node styles for consistent appearance
+    node [shape=box, style=filled, fontname="Helvetica", fillcolor="#D8EBF7"]; // Single global fillcolor
+
+    // Nodes for platforms
+    node [shape=cylinder, fillcolor="#C1E1C1", style=filled]; // Distinct style for platform nodes
+    ApacheAirflow [label="Apache Airflow\n(Orchestration)"];
+    GCS [label="Google Cloud Storage"];
+    BigQuery [label="BigQuery\n(Data Processing and Storage)"];
+
+    // Restore default node style for operators
+    node [shape=box, fillcolor="#D8EBF7"];
+
+    // Data Pipeline Operations (Single BigFrames Operator Approach)
+    subgraph cluster_single_operator_approach {
+        label="Data Pipeline Operations"; // Label for the single approach
+        style=filled;
+        fillcolor="#F5F5F5"; // Light grey background for this subgraph
+
+        // Common Data Ingestion Step (orchestrated by Airflow, moves data to GCS)
+        download_upload [label="Download CSV from HTTPS\n& Upload to GCS\n(BashOperator)"];
+        
+        // Single BigFrames operator for preprocessing, validation, and writing
+        bf_to_gbq [label="Process, Validate & Write Data\n(PythonOperator using BigFrames)\n(Reads from GCS, processes in BigQuery,\nwrites to final BigQuery table)", height=1.5];
+    }
+
+    // Connect Airflow to the operators it orchestrates
+    ApacheAirflow -> download_upload [label="Orchestrates" lhead=cluster_single_operator_approach];
+
+
+    // Data Flow: Ingestion
+    download_upload -> GCS [label="Uploads Data"];
+
+    // Data Flow: Processing (GCS to BigQuery via BigFrames operations)
+    GCS -> bf_to_gbq [label="Data Source"]; // bf_to_gbq reads from GCS (via BigQuery engine)
+    bf_to_gbq -> BigQuery [label="BigFrames processing\n& writes to final table"]; // BigFrames operates *in* BigQuery and writes final data
+
+    // Dependencies within the Airflow DAG logic
+    download_upload -> bf_to_gbq [label="Task Dependency"];
+
+    // Add a general note about BigFrames execution for clarity
+    note_bigframes_execution [label="BigFrames operations execute\ndirectly within BigQuery's engine,\nminimizing Airflow worker load.", shape=note, fontsize=10, fillcolor="#FFFACD"];
+}
