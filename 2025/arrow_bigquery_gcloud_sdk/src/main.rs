@@ -74,10 +74,10 @@ async fn read_stream(
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Debug logging
-    let subscriber = tracing_subscriber::fmt()
-        .with_env_filter("gcloud_sdk=debug")
-        .finish();
-    tracing::subscriber::set_global_default(subscriber)?;
+    // let subscriber = tracing_subscriber::fmt()
+    //     .with_env_filter("gcloud_sdk=debug")
+    //     .finish();
+    // tracing::subscriber::set_global_default(subscriber)?;
 
     rustls::crypto::ring::default_provider().install_default().expect("Failed to install rustls crypto provider");
 
