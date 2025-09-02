@@ -1,1 +1,0 @@
-# Polars BigQuery gcloud-bigquery

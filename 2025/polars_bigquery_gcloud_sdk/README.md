@@ -1,1 +1,1 @@
-# Polars BigQuery gcloud-sdk
+# Polars BigQuery gcloud-bigquery

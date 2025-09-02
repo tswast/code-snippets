@@ -3,7 +3,7 @@ requires = ["maturin>=1.0,<2.0", "polars>=1.3.0"]
 build-backend = "maturin"
 
 [project]
-name = "polars-bigquery-gcloud-sdk"
+name = "polars-bigquery"
 version = "0.0.1"
 requires-python = ">=3.10"
 classifiers = [
@@ -11,3 +11,21 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = [
+    "polars==1.31.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4.1",
+]
+
+[tool.maturin]
+# Allow cargo test without failing on linking to Python.
+# https://github.com/PyO3/pyo3/discussions/2271#discussioncomment-2497276
+cargo-extra-args = "--features extension-module"
+
+[tool.uv]
+# https://github.com/PyO3/maturin/issues/2314#issuecomment-2488542771
+# Rebuild package when any rust files change
+cache-keys = [{file = "pyproject.toml"}, {file = "rust/Cargo.toml"}, {file = "**/*.rs"}]

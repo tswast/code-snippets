@@ -1,15 +1,16 @@
 [package]
-name = "polars-bigquery-gcloud-sdk"
+name = "polars-bigquery"
 version = "0.1.0"
 edition = "2021"
 
-[lib]
-name = "polars_bigquery_gcloud_sdk"
-crate-type= ["cdylib"]
-
 [dependencies]
-polars = { version = "0.49.1", features = ["fmt", "dtype-date", "timezones", "lazy"], default-features = false }
-polars-arrow = { version = "0.49.1", default-features = false }
-pyo3 = { version = "0.25", features = ["abi3-py39"] }
-pyo3-polars = { version = "0.22.0", features = ["derive", "lazy"] }
+gcloud-sdk = { version = "0.27.4", features = ["google-cloud-bigquery-storage-v1"] }
+polars = { version = "0.50.0", features = ["fmt", "dtype-date", "timezones", "lazy"], default-features = false }
+polars-arrow = { version = "0.50.0", default-features = false }
+polars-core = "0.50.0"
+polars-io = { version="0.50.0", features = ["ipc", "ipc_streaming"] }
 rand = { version = "0.8.5", features = [] }
+rustls = { version = "0.23.31", features = ["ring"] }
+tokio = { version = "1.47.1", features = ["rt-multi-thread"] }
+tracing = "0.1"
+tracing-subscriber = { version ="0.3", features = ["env-filter"] }
