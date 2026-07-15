@@ -1,0 +1,12 @@
+[project]
+name = "scipy-lightning-talk"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "bigframes>=2.45.0",
+    "jupyterlab>=4.6.1",
+    "jupyterlab-slideshow>=0.3.4",
+    "seaborn>=0.13.2",
+]
