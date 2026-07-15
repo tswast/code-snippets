@@ -8,5 +8,6 @@ dependencies = [
     "bigframes>=2.45.0",
     "jupyterlab>=4.6.1",
     "jupyterlab-slideshow>=0.3.4",
+    "python-calamine>=0.8.2",
     "seaborn>=0.13.2",
 ]
